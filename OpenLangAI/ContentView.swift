@@ -5,7 +5,7 @@ import SecureStoreKit
 struct ContentView: View {
     @State private var selectedProvider: LLMProvider = .chatGPT
     @State private var apiKey: String = KeychainHelper.load() ?? ""
-    @State private var selectedLanguage: Language = .english
+    @State private var selectedLanguage: Language = .spanish
     @State private var testResult: String?
 
     var body: some View {

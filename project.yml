@@ -34,6 +34,8 @@ targets:
     platform: iOS
     sources:
       - Packages/OpenAIClientKit/Sources
+    dependencies:
+      - target: SecureStoreKit
     settings:
       GENERATE_INFOPLIST_FILE: YES
   SecureStoreKit:
@@ -48,5 +50,7 @@ targets:
     platform: iOS
     sources:
       - Packages/PersistenceKit/Sources
+    resources:
+      - Packages/PersistenceKit/Sources/PersistenceKit/OpenLangAI.xcdatamodeld
     settings:
       GENERATE_INFOPLIST_FILE: YES
