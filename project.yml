@@ -1,0 +1,52 @@
+name: OpenLangAI
+options:
+  bundleIdPrefix: com.AHTechnologies
+configs:
+  Debug: debug
+  Release: release
+schemes:
+  OpenLangAI:
+    build:
+      targets:
+        OpenLangAI: [run, test]
+targets:
+  OpenLangAI:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - OpenLangAI
+    dependencies:
+      - target: AudioPipelineKit
+      - target: OpenAIClientKit
+      - target: SecureStoreKit
+      - target: PersistenceKit
+    infoPlist: OpenLangAI/Info.plist
+  AudioPipelineKit:
+    type: framework
+    platform: iOS
+    sources:
+      - Packages/AudioPipelineKit/Sources
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+  OpenAIClientKit:
+    type: framework
+    platform: iOS
+    sources:
+      - Packages/OpenAIClientKit/Sources
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+  SecureStoreKit:
+    type: framework
+    platform: iOS
+    sources:
+      - Packages/SecureStoreKit/Sources
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+  PersistenceKit:
+    type: framework
+    platform: iOS
+    sources:
+      - Packages/PersistenceKit/Sources
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
