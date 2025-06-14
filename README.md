@@ -154,11 +154,13 @@ xcodebuild -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platfo
 ```bash
 xcodebuild test -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
 ```
+### Caveats
+- Make sure the OpenLangAI.xcdatamodeld file is included in your app target's "Copy Bundle Resources" build phase in Xcode.
 
 ### Debug Features
 - Set `OPENLANGAI_DEBUG=1` in scheme environment variables
 - View Core Data SQL: `-com.apple.CoreData.SQLDebug 1`
-- Speech recognition logs: `-com.apple.speech.SpeechRecognitionDebug 1`
+- Speech recognition logs: `-com.apple.speech.SpeechRecognitionDebug 1
 
 ## 🚦 Roadmap
 
