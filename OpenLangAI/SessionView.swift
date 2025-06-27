@@ -82,7 +82,7 @@ struct SessionView: View {
                         }
                         .padding()
                     }
-                    .onChange(of: transcript.count) { _ in
+                    .onChange(of: transcript.count) {
                         withAnimation {
                             proxy.scrollTo(transcript.last?.id, anchor: .bottom)
                         }
@@ -404,15 +404,15 @@ struct SessionView: View {
         speechSynthesizer.delegate = speechDelegate
         
         // Set up delegate callbacks
-        speechDelegate.onDidStart = { [weak self] in
+        speechDelegate.onDidStart = {
             DispatchQueue.main.async {
-                self?.isAISpeaking = true
+                isAISpeaking = true
             }
         }
         
-        speechDelegate.onDidFinish = { [weak self] in
+        speechDelegate.onDidFinish = {
             DispatchQueue.main.async {
-                self?.isAISpeaking = false
+                isAISpeaking = false
                 // Optionally, you can automatically start listening again after AI finishes speaking
                 // if self?.isRecording == false {
                 //     self?.startRecording()
@@ -420,9 +420,9 @@ struct SessionView: View {
             }
         }
         
-        speechDelegate.onDidCancel = { [weak self] in
+        speechDelegate.onDidCancel = {
             DispatchQueue.main.async {
-                self?.isAISpeaking = false
+                isAISpeaking = false
             }
         }
     }
