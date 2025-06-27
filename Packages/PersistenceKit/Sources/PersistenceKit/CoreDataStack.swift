@@ -5,11 +5,28 @@ public final class CoreDataStack {
     public let persistentContainer: NSPersistentContainer
 
     private init() {
-        guard let modelURL = Bundle.main.url(forResource: "OpenLangAI", withExtension: "momd") else {
-            fatalError("Failed to find data model")
+        // First try to find the model in the framework bundle
+        let bundle = Bundle(for: CoreDataStack.self)
+        
+        // Try to find the compiled model (.momd)
+        var modelURL = bundle.url(forResource: "OpenLangAI", withExtension: "momd")
+        
+        // If not found, try the model definition (.xcdatamodeld)
+        if modelURL == nil {
+            modelURL = bundle.url(forResource: "OpenLangAI", withExtension: "xcdatamodeld")
         }
-        guard let mom = NSManagedObjectModel(contentsOf: modelURL) else {
-            fatalError("Failed to create model from file: \(modelURL)")
+        
+        // If still not found, try Bundle.main as a fallback
+        if modelURL == nil {
+            modelURL = Bundle.main.url(forResource: "OpenLangAI", withExtension: "momd")
+        }
+        
+        guard let finalModelURL = modelURL else {
+            fatalError("Failed to find data model in bundle: \(bundle)")
+        }
+        
+        guard let mom = NSManagedObjectModel(contentsOf: finalModelURL) else {
+            fatalError("Failed to create model from file: \(finalModelURL)")
         }
         
         persistentContainer = NSPersistentCloudKitContainer(name: "OpenLangAI", managedObjectModel: mom)
