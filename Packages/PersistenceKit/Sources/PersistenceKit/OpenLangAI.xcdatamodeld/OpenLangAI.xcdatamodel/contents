@@ -6,7 +6,7 @@
         <attribute name="language" attributeType="String"/>
         <attribute name="startTime" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="userLevel" attributeType="String"/>
-        <relationship name="messages" toMany="YES" deletionRule="Cascade" ordered="YES" destinationEntity="Message" inverseName="conversation" inverseEntity="Message"/>
+        <relationship name="messages" toMany="YES" deletionRule="Cascade" destinationEntity="Message" inverseName="conversation" inverseEntity="Message"/>
         <relationship name="vocabularyItems" toMany="YES" deletionRule="Cascade" destinationEntity="VocabularyItem" inverseName="conversation" inverseEntity="VocabularyItem"/>
     </entity>
     <entity name="Message" representedClassName="Message" syncable="YES">
