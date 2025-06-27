@@ -5,6 +5,7 @@ An immersive iOS language learning app that enables natural voice conversations 
 ![iOS 18.5+](https://img.shields.io/badge/iOS-18.5+-blue.svg)
 ![Swift 5.0](https://img.shields.io/badge/Swift-5.0-orange.svg)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green.svg)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)
 
 ## 🌟 Key Features
 
@@ -28,6 +29,12 @@ An immersive iOS language learning app that enables natural voice conversations 
 - **🚫 No Account Required**: Start learning immediately
 - **💾 Local Data**: Your conversations stay on your device
 
+### Recent Improvements (v1.1)
+- **✅ Provider Selection**: Choose between available LLM providers
+- **🔄 Persistent Settings**: Your provider choice is remembered
+- **🚨 Error Handling**: Clear error messages guide you to solutions
+- **🏷️ Coming Soon Labels**: Future providers clearly marked
+
 ## 📱 Screenshots
 
 <details>
@@ -44,7 +51,7 @@ An immersive iOS language learning app that enables natural voice conversations 
 
 ### Prerequisites
 - macOS with Xcode 16.0+
-- iOS 18.5+ device or simulator
+- iOS 18.5+ device or simulator (iPhone 16 Pro recommended)
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) installed
 
@@ -116,9 +123,11 @@ OpenLangAI/
 ### API Keys
 API keys are stored securely in the iOS Keychain. To update your key:
 1. Go to Settings tab
-2. Tap on your current provider
-3. Enter new API key
+2. Select your LLM provider (currently only ChatGPT is available)
+3. Enter your OpenAI API key
 4. Tap "Save Key"
+
+**Note**: Claude and Gemini providers show "(Coming Soon)" and are not yet functional.
 
 ### Supported Languages
 Configure additional languages in `Language.swift`:
@@ -152,8 +161,13 @@ xcodebuild -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platfo
 
 ### Running Tests
 ```bash
-xcodebuild test -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+xcodebuild test -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'
 ```
+
+Test targets include:
+- `OpenLangAITests`: Main app tests
+- `OpenAIClientKitTests`: LLM client tests
+- `SecureStoreKitTests`: Keychain tests
 ### Caveats
 - Make sure the OpenLangAI.xcdatamodeld file is included in your app target's "Copy Bundle Resources" build phase in Xcode.
 
@@ -164,11 +178,17 @@ xcodebuild test -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'p
 
 ## 🚦 Roadmap
 
+### In Progress
+- [x] Provider selection persistence (Phase 1 ✅)
+- [x] Error handling improvements (Phase 1 ✅)
+- [ ] Provider-specific API key management (Phase 2)
+- [ ] Claude API integration (Phase 3)
+- [ ] Gemini API integration (Phase 3)
+
 ### Near Term
 - [ ] Translation support for beginners
 - [ ] Real vocabulary extraction using NLP
 - [ ] Push notifications for practice reminders
-- [ ] Claude and Gemini API support
 
 ### Future
 - [ ] iPad and Apple Watch apps
