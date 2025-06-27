@@ -148,6 +148,28 @@ Audio capture is configured for optimal speech recognition:
 ## 🧪 Development
 
 ### Building from Source
+
+**Important**: All builds and tests must use iPhone 16 Pro with iOS 18.5.
+
+#### Using the build script (recommended):
+```bash
+# Make script executable (first time only)
+chmod +x build.sh
+
+# Generate Xcode project
+./build.sh generate
+
+# Build the app
+./build.sh build
+
+# Run tests
+./build.sh test
+
+# Or do everything at once
+./build.sh all
+```
+
+#### Manual commands:
 ```bash
 # Install dependencies
 brew install xcodegen
@@ -155,12 +177,16 @@ brew install xcodegen
 # Generate project
 xcodegen generate
 
-# Build
-xcodebuild -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
+# Build (iPhone 16 Pro, iOS 18.5)
+xcodebuild -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' build
 ```
 
 ### Running Tests
 ```bash
+# Using build script (recommended)
+./build.sh test
+
+# Manual command (iPhone 16 Pro, iOS 18.5)
 xcodebuild test -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'
 ```
 

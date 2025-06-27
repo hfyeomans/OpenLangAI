@@ -4,22 +4,47 @@ import AVFoundation
 import OpenAIClientKit
 import PersistenceKit
 
-// Speech Synthesizer Delegate wrapper
-class SpeechSynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
-    var onDidStart: (() -> Void)?
-    var onDidFinish: (() -> Void)?
-    var onDidCancel: (() -> Void)?
+// Speech Synthesizer Manager to handle delegate callbacks
+class SpeechSynthesizerManager: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+    @Published var isAISpeaking = false
+    let synthesizer = AVSpeechSynthesizer()
+    
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+    
+    func speak(_ text: String, language: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: language)
+        utterance.rate = 0.5
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 0.9
+        synthesizer.speak(utterance)
+    }
+    
+    func stopSpeaking() {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+    
+    // MARK: - AVSpeechSynthesizerDelegate
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        onDidStart?()
+        DispatchQueue.main.async {
+            self.isAISpeaking = true
+        }
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        onDidFinish?()
+        DispatchQueue.main.async {
+            self.isAISpeaking = false
+        }
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        onDidCancel?()
+        DispatchQueue.main.async {
+            self.isAISpeaking = false
+        }
     }
 }
 
@@ -31,15 +56,13 @@ struct SessionView: View {
     @State private var isProcessing = false
     @State private var showingRecap = false
     @State private var currentConversation: Conversation?
-    @State private var isAISpeaking = false
     
     // Speech recognition
     @State private var speechRecognizer: SFSpeechRecognizer?
     @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     @State private var recognitionTask: SFSpeechRecognitionTask?
     @State private var audioEngine = AVAudioEngine()
-    @State private var speechSynthesizer = AVSpeechSynthesizer()
-    @State private var speechDelegate = SpeechSynthesizerDelegate()
+    @StateObject private var speechManager = SpeechSynthesizerManager()
     
     // Error handling
     @State private var showingError = false
@@ -61,7 +84,7 @@ struct SessionView: View {
                                 TranscriptBubble(
                                     entry: entry,
                                     showTranslation: showTranslation,
-                                    isSpeaking: !entry.isUser && entry.id == transcript.last?.id && isAISpeaking
+                                    isSpeaking: !entry.isUser && entry.id == transcript.last?.id && speechManager.isAISpeaking
                                 )
                                 .id(entry.id)
                             }
@@ -108,11 +131,11 @@ struct SessionView: View {
                                 .foregroundColor(.white)
                         }
                     }
-                    .disabled(isProcessing || isAISpeaking)
+                    .disabled(isProcessing || speechManager.isAISpeaking)
                     .scaleEffect(isRecording ? 1.1 : 1.0)
                     .animation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true), value: isRecording)
                     
-                    Text(isAISpeaking ? "AI is speaking..." : (isRecording ? "Listening..." : "Tap to speak"))
+                    Text(speechManager.isAISpeaking ? "AI is speaking..." : (isRecording ? "Listening..." : "Tap to speak"))
                         .font(.headline)
                         .foregroundColor(.secondary)
                 }
@@ -133,7 +156,7 @@ struct SessionView: View {
             setupSpeechRecognition()
             configureAudioSession()
             startNewConversation()
-            setupSpeechSynthesizerDelegate()
+            // Speech manager is already set up via @StateObject
         }
         .onDisappear {
             stopRecording()
@@ -210,8 +233,8 @@ struct SessionView: View {
         }
         
         // Stop any ongoing AI speech when user wants to speak
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: .immediate)
+        if speechManager.synthesizer.isSpeaking {
+            speechManager.stopSpeaking()
         }
         
         // Reset the audio engine and recognition task
@@ -393,39 +416,9 @@ struct SessionView: View {
             print("Failed to configure audio session for playback: \(error)")
         }
         
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: getLocaleIdentifier())
-        utterance.rate = 0.5
-        
-        speechSynthesizer.speak(utterance)
+        speechManager.speak(text, language: getLocaleIdentifier())
     }
     
-    private func setupSpeechSynthesizerDelegate() {
-        speechSynthesizer.delegate = speechDelegate
-        
-        // Set up delegate callbacks
-        speechDelegate.onDidStart = {
-            DispatchQueue.main.async {
-                isAISpeaking = true
-            }
-        }
-        
-        speechDelegate.onDidFinish = {
-            DispatchQueue.main.async {
-                isAISpeaking = false
-                // Optionally, you can automatically start listening again after AI finishes speaking
-                // if self?.isRecording == false {
-                //     self?.startRecording()
-                // }
-            }
-        }
-        
-        speechDelegate.onDidCancel = {
-            DispatchQueue.main.async {
-                isAISpeaking = false
-            }
-        }
-    }
     
     private func configureAudioSession() {
         // Configure audio session for conversation flow (both recording and playback)
@@ -455,8 +448,8 @@ struct SessionView: View {
     private func endSession() {
         stopRecording()
         // Stop any ongoing speech
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: .immediate)
+        if speechManager.synthesizer.isSpeaking {
+            speechManager.stopSpeaking()
         }
         if let conversation = currentConversation {
             PersistenceController.shared.endConversation(conversation)

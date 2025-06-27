@@ -1,0 +1,14 @@
+# Xcode Build Settings
+# This file ensures consistent device and OS selection for all builds and tests
+
+# Device Configuration
+DEVICE_NAME="iPhone 16 Pro"
+OS_VERSION="18.5"
+PLATFORM="iOS Simulator"
+
+# Full destination string for xcodebuild
+DESTINATION="platform=${PLATFORM},name=${DEVICE_NAME},OS=${OS_VERSION}"
+
+# Usage in build commands:
+# xcodebuild -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination "${DESTINATION}" build
+# xcodebuild test -project OpenLangAI.xcodeproj -scheme OpenLangAI -destination "${DESTINATION}"

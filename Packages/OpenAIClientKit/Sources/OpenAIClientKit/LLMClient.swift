@@ -13,7 +13,7 @@ public final class LLMClient {
     public static let shared = LLMClient()
     
     private var openAI: OpenAIClient {
-        let apiKey = KeychainHelper.load()
+        let apiKey = KeychainHelper.load(provider: LLMProvider.chatGPT.rawValue) ?? ""
         return OpenAIClient(apiKey: apiKey)
     }
     
