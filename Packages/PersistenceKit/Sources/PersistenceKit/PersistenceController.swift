@@ -12,11 +12,28 @@ public class PersistenceController {
     
     private init() {
         // Load the Core Data model from Bundle.main
-        guard let modelURL = Bundle.main.url(forResource: "OpenLangAI", withExtension: "momd") else {
-            fatalError("Failed to find data model")
+        // First try to find the model in the framework bundle
+        let bundle = Bundle(for: PersistenceController.self)
+        
+        // Try to find the compiled model (.momd)
+        var modelURL = bundle.url(forResource: "OpenLangAI", withExtension: "momd")
+        
+        // If not found, try the model definition (.xcdatamodeld)
+        if modelURL == nil {
+            modelURL = bundle.url(forResource: "OpenLangAI", withExtension: "xcdatamodeld")
         }
-        guard let managedObjectModel = NSManagedObjectModel(contentsOf: modelURL) else {
-            fatalError("Failed to create model from file: \(modelURL)")
+        
+        // If still not found, try Bundle.main as a fallback
+        if modelURL == nil {
+            modelURL = Bundle.main.url(forResource: "OpenLangAI", withExtension: "momd")
+        }
+        
+        guard let finalModelURL = modelURL else {
+            fatalError("Failed to find data model in bundle: \(bundle)")
+        }
+        
+        guard let managedObjectModel = NSManagedObjectModel(contentsOf: finalModelURL) else {
+            fatalError("Failed to create model from file: \(finalModelURL)")
         }
         
         container = NSPersistentCloudKitContainer(name: "OpenLangAI", managedObjectModel: managedObjectModel)
