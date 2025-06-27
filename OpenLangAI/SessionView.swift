@@ -4,6 +4,25 @@ import AVFoundation
 import OpenAIClientKit
 import PersistenceKit
 
+// Speech Synthesizer Delegate wrapper
+class SpeechSynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    var onDidStart: (() -> Void)?
+    var onDidFinish: (() -> Void)?
+    var onDidCancel: (() -> Void)?
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        onDidStart?()
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        onDidFinish?()
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        onDidCancel?()
+    }
+}
+
 struct SessionView: View {
     @State private var isRecording = false
     @State private var transcript: [TranscriptEntry] = []
@@ -12,12 +31,15 @@ struct SessionView: View {
     @State private var isProcessing = false
     @State private var showingRecap = false
     @State private var currentConversation: Conversation?
+    @State private var isAISpeaking = false
     
     // Speech recognition
     @State private var speechRecognizer: SFSpeechRecognizer?
     @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     @State private var recognitionTask: SFSpeechRecognitionTask?
     @State private var audioEngine = AVAudioEngine()
+    @State private var speechSynthesizer = AVSpeechSynthesizer()
+    @State private var speechDelegate = SpeechSynthesizerDelegate()
     
     // Error handling
     @State private var showingError = false
@@ -36,8 +58,12 @@ struct SessionView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(transcript) { entry in
-                                TranscriptBubble(entry: entry, showTranslation: showTranslation)
-                                    .id(entry.id)
+                                TranscriptBubble(
+                                    entry: entry,
+                                    showTranslation: showTranslation,
+                                    isSpeaking: !entry.isUser && entry.id == transcript.last?.id && isAISpeaking
+                                )
+                                .id(entry.id)
                             }
                             
                             if !currentUserText.isEmpty {
@@ -48,7 +74,8 @@ struct SessionView: View {
                                         isUser: true,
                                         timestamp: Date()
                                     ),
-                                    showTranslation: false
+                                    showTranslation: false,
+                                    isSpeaking: false
                                 )
                                 .opacity(0.7)
                             }
@@ -81,11 +108,11 @@ struct SessionView: View {
                                 .foregroundColor(.white)
                         }
                     }
-                    .disabled(isProcessing)
+                    .disabled(isProcessing || isAISpeaking)
                     .scaleEffect(isRecording ? 1.1 : 1.0)
                     .animation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true), value: isRecording)
                     
-                    Text(isRecording ? "Listening..." : "Tap to speak")
+                    Text(isAISpeaking ? "AI is speaking..." : (isRecording ? "Listening..." : "Tap to speak"))
                         .font(.headline)
                         .foregroundColor(.secondary)
                 }
@@ -104,7 +131,9 @@ struct SessionView: View {
         }
         .onAppear {
             setupSpeechRecognition()
+            configureAudioSession()
             startNewConversation()
+            setupSpeechSynthesizerDelegate()
         }
         .onDisappear {
             stopRecording()
@@ -180,6 +209,11 @@ struct SessionView: View {
             return
         }
         
+        // Stop any ongoing AI speech when user wants to speak
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+        
         // Reset the audio engine and recognition task
         if audioEngine.isRunning {
             audioEngine.stop()
@@ -192,7 +226,7 @@ struct SessionView: View {
         // Configure audio session
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             errorMessage = "Failed to set up audio session. Please check your microphone permissions."
@@ -281,8 +315,8 @@ struct SessionView: View {
         recognitionTask?.cancel()
         recognitionTask = nil
         
-        // Deactivate audio session
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        // Keep audio session active for seamless conversation flow
+        // try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
     
     private func processUserInput(_ text: String) {
@@ -350,12 +384,65 @@ struct SessionView: View {
     }
     
     private func speakText(_ text: String) {
+        // Configure audio session for playback
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to configure audio session for playback: \(error)")
+        }
+        
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: getLocaleIdentifier())
         utterance.rate = 0.5
         
-        let synthesizer = AVSpeechSynthesizer()
-        synthesizer.speak(utterance)
+        speechSynthesizer.speak(utterance)
+    }
+    
+    private func setupSpeechSynthesizerDelegate() {
+        speechSynthesizer.delegate = speechDelegate
+        
+        // Set up delegate callbacks
+        speechDelegate.onDidStart = { [weak self] in
+            DispatchQueue.main.async {
+                self?.isAISpeaking = true
+            }
+        }
+        
+        speechDelegate.onDidFinish = { [weak self] in
+            DispatchQueue.main.async {
+                self?.isAISpeaking = false
+                // Optionally, you can automatically start listening again after AI finishes speaking
+                // if self?.isRecording == false {
+                //     self?.startRecording()
+                // }
+            }
+        }
+        
+        speechDelegate.onDidCancel = { [weak self] in
+            DispatchQueue.main.async {
+                self?.isAISpeaking = false
+            }
+        }
+    }
+    
+    private func configureAudioSession() {
+        // Configure audio session for conversation flow (both recording and playback)
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            // Set category to playAndRecord with appropriate options
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            // Set preferred sample rate and buffer duration for better performance
+            try audioSession.setPreferredSampleRate(44100)
+            try audioSession.setPreferredIOBufferDuration(0.005)
+            // Activate the session
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to configure audio session: \(error)")
+            errorMessage = "Failed to configure audio. Please restart the app."
+            showingError = true
+        }
     }
     
     private func startNewConversation() {
@@ -367,6 +454,10 @@ struct SessionView: View {
     
     private func endSession() {
         stopRecording()
+        // Stop any ongoing speech
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
         if let conversation = currentConversation {
             PersistenceController.shared.endConversation(conversation)
             showingRecap = true
@@ -430,17 +521,46 @@ struct TranscriptEntry: Identifiable {
 struct TranscriptBubble: View {
     let entry: TranscriptEntry
     let showTranslation: Bool
+    var isSpeaking: Bool = false
     
     var body: some View {
         HStack {
             if entry.isUser { Spacer() }
             
             VStack(alignment: entry.isUser ? .trailing : .leading, spacing: 4) {
-                Text(entry.text)
-                    .padding(12)
-                    .background(entry.isUser ? Color.blue : Color(UIColor.secondarySystemBackground))
-                    .foregroundColor(entry.isUser ? .white : .primary)
-                    .cornerRadius(16)
+                ZStack {
+                    Text(entry.text)
+                        .padding(12)
+                        .background(entry.isUser ? Color.blue : Color(UIColor.secondarySystemBackground))
+                        .foregroundColor(entry.isUser ? .white : .primary)
+                        .cornerRadius(16)
+                    
+                    // Speaking indicator
+                    if isSpeaking {
+                        HStack {
+                            Spacer()
+                            VStack {
+                                Spacer()
+                                HStack(spacing: 4) {
+                                    ForEach(0..<3) { index in
+                                        Circle()
+                                            .fill(Color.white.opacity(0.8))
+                                            .frame(width: 4, height: 4)
+                                            .scaleEffect(isSpeaking ? 1.2 : 0.8)
+                                            .animation(
+                                                Animation.easeInOut(duration: 0.6)
+                                                    .repeatForever(autoreverses: true)
+                                                    .delay(Double(index) * 0.2),
+                                                value: isSpeaking
+                                            )
+                                    }
+                                }
+                                .padding(.bottom, 8)
+                                .padding(.trailing, 8)
+                            }
+                        }
+                    }
+                }
                 
                 if showTranslation, let translation = entry.translation {
                     Text(translation)
