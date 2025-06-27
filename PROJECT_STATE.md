@@ -265,3 +265,18 @@ Ready to proceed with Phase 2 from CLAUDE_PLAN.md:
 2. Implement provider-specific API key management
 3. Add CI/CD with test automation
 4. Add error tracking and analytics
+
+## Critical Bug Fix (2025-06-27)
+
+### ✅ Core Data Model Loading - FIXED
+
+**Pull Request #3 Merged** - Fixed runtime crash on iPhone devices:
+
+**Problem**: App crashed with "Failed to find data model" because PersistenceKit framework was looking for the Core Data model in Bundle.main instead of the framework bundle.
+
+**Solution**: 
+- Updated CoreDataStack and PersistenceController to look in framework bundle first
+- Added fallback logic to check multiple locations (.momd, .xcdatamodeld, Bundle.main)
+- Now correctly loads model from PersistenceKit framework resources
+
+**Status**: App now launches successfully on iPhone 16 Pro (iOS 18.5) ✅
