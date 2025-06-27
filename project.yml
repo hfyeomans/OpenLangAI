@@ -9,6 +9,11 @@ schemes:
     build:
       targets:
         OpenLangAI: [run, test]
+    test:
+      targets:
+        - OpenLangAITests
+        - OpenAIClientKitTests
+        - SecureStoreKitTests
 targets:
   OpenLangAI:
     type: application
@@ -52,5 +57,36 @@ targets:
       - Packages/PersistenceKit/Sources
     resources:
       - Packages/PersistenceKit/Sources/PersistenceKit/OpenLangAI.xcdatamodeld
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+  OpenLangAITests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - OpenLangAITests
+    dependencies:
+      - target: OpenLangAI
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+  OpenAIClientKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - Packages/OpenAIClientKit/Tests/OpenAIClientKitTests
+    dependencies:
+      - target: OpenAIClientKit
+      - target: SecureStoreKit
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+  SecureStoreKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - Packages/SecureStoreKit/Tests/SecureStoreKitTests
+    dependencies:
+      - target: SecureStoreKit
     settings:
       GENERATE_INFOPLIST_FILE: YES
