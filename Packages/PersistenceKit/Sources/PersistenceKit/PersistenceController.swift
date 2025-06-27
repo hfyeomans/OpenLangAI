@@ -11,7 +11,15 @@ public class PersistenceController {
     }
     
     private init() {
-        container = NSPersistentCloudKitContainer(name: "OpenLangAI")
+        // Load the Core Data model from Bundle.main
+        guard let modelURL = Bundle.main.url(forResource: "OpenLangAI", withExtension: "momd") else {
+            fatalError("Failed to find data model")
+        }
+        guard let managedObjectModel = NSManagedObjectModel(contentsOf: modelURL) else {
+            fatalError("Failed to create model from file: \(modelURL)")
+        }
+        
+        container = NSPersistentCloudKitContainer(name: "OpenLangAI", managedObjectModel: managedObjectModel)
         
         // Configure for CloudKit sync
         container.persistentStoreDescriptions.forEach { description in

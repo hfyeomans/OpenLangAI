@@ -19,9 +19,14 @@ struct SessionView: View {
     @State private var recognitionTask: SFSpeechRecognitionTask?
     @State private var audioEngine = AVAudioEngine()
     
+    // Error handling
+    @State private var showingError = false
+    @State private var errorMessage = ""
+    
     // User preferences
     private let selectedLanguage = Language(rawValue: UserDefaults.standard.string(forKey: "selectedLanguage") ?? "Spanish") ?? .spanish
     private let userLevel = UserDefaults.standard.string(forKey: "userLevel") ?? "beginner"
+    private let selectedProvider = LLMProvider(rawValue: UserDefaults.standard.string(forKey: "selectedProvider") ?? "") ?? .chatGPT
     
     var body: some View {
         NavigationView {
@@ -112,6 +117,11 @@ struct SessionView: View {
                 SessionRecapView(conversation: conversation)
             }
         }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
     
     private func setupSpeechRecognition() {
@@ -120,9 +130,16 @@ struct SessionView: View {
             DispatchQueue.main.async {
                 switch authStatus {
                 case .authorized:
-                    self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: getLocaleIdentifier()))
-                default:
-                    // Handle permission denied
+                    self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: self.getLocaleIdentifier()))
+                case .denied:
+                    self.errorMessage = "Speech recognition permission denied. Please enable it in Settings > Privacy > Speech Recognition."
+                    self.showingError = true
+                case .restricted:
+                    self.errorMessage = "Speech recognition is restricted on this device."
+                    self.showingError = true
+                case .notDetermined:
+                    break
+                @unknown default:
                     break
                 }
             }
@@ -130,7 +147,10 @@ struct SessionView: View {
         
         AVAudioApplication.requestRecordPermission { granted in
             if !granted {
-                print("Microphone permission denied")
+                DispatchQueue.main.async {
+                    self.errorMessage = "Microphone permission denied. Please enable it in Settings > Privacy > Microphone."
+                    self.showingError = true
+                }
             }
         }
     }
@@ -155,7 +175,8 @@ struct SessionView: View {
     
     private func startRecording() {
         guard let speechRecognizer = speechRecognizer, speechRecognizer.isAvailable else {
-            print("Speech recognition not available")
+            errorMessage = "Speech recognition is not available. Please check your language settings or try again later."
+            showingError = true
             return
         }
         
@@ -174,14 +195,16 @@ struct SessionView: View {
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            print("Audio session setup failed: \(error)")
+            errorMessage = "Failed to set up audio session. Please check your microphone permissions."
+            showingError = true
             return
         }
         
         // Create and configure the recognition request
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = recognitionRequest else {
-            print("Unable to create recognition request")
+            errorMessage = "Unable to create speech recognition request. Please try again."
+            showingError = true
             return
         }
         
@@ -213,9 +236,22 @@ struct SessionView: View {
             }
             
             if let error = error {
-                print("Recognition error: \(error)")
                 DispatchQueue.main.async { [self] in
                     self.stopRecording()
+                    // Handle specific speech recognition errors
+                    if let nsError = error as NSError? {
+                        switch nsError.code {
+                        case 203: // No speech detected
+                            self.errorMessage = "No speech detected. Please speak clearly into the microphone."
+                        case 216: // Audio engine error
+                            self.errorMessage = "Audio recording error. Please try again."
+                        case 1110: // Network error
+                            self.errorMessage = "Network error during speech recognition. Please check your connection."
+                        default:
+                            self.errorMessage = "Speech recognition error: \(error.localizedDescription)"
+                        }
+                        self.showingError = true
+                    }
                 }
             }
         }
@@ -227,7 +263,8 @@ struct SessionView: View {
             isRecording = true
             currentUserText = ""
         } catch {
-            print("Audio engine failed to start: \(error)")
+            errorMessage = "Failed to start audio recording: \(error.localizedDescription)"
+            showingError = true
             stopRecording()
         }
     }
@@ -277,7 +314,7 @@ struct SessionView: View {
             do {
                 let response = try await LLMClient.shared.sendMessage(
                     text,
-                    provider: .chatGPT,
+                    provider: selectedProvider,
                     language: selectedLanguage.rawValue
                 )
                 
@@ -305,8 +342,8 @@ struct SessionView: View {
                 }
             } catch {
                 await MainActor.run {
-                    // Handle error
                     isProcessing = false
+                    handleError(error)
                 }
             }
         }
@@ -334,6 +371,51 @@ struct SessionView: View {
             PersistenceController.shared.endConversation(conversation)
             showingRecap = true
         }
+    }
+    
+    private func handleError(_ error: Error) {
+        // Handle specific error types with user-friendly messages
+        if let openAIError = error as? OpenAIError {
+            switch openAIError {
+            case .missingAPIKey:
+                errorMessage = "API key is missing. Please add your API key in Settings."
+            case .invalidAPIKey:
+                errorMessage = "Invalid API key. Please check your API key in Settings."
+            case .rateLimitExceeded:
+                errorMessage = "Rate limit exceeded. Please wait a moment and try again."
+            case .serverError:
+                errorMessage = "Server error. Please try again later."
+            case .invalidResponse, .invalidResponseFormat:
+                errorMessage = "Received an invalid response. Please try again."
+            case .apiError(let message):
+                errorMessage = "API Error: \(message)"
+            case .unknownError(let statusCode):
+                errorMessage = "An unexpected error occurred (code: \(statusCode)). Please try again."
+            case .invalidURL:
+                errorMessage = "Configuration error. Please contact support."
+            }
+        } else if let llmError = error as? LLMError {
+            switch llmError {
+            case .providerNotImplemented(let provider):
+                errorMessage = "\(provider) is not yet available. Please select ChatGPT in Settings."
+            }
+        } else if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet:
+                errorMessage = "No internet connection. Please check your network settings."
+            case .timedOut:
+                errorMessage = "Request timed out. Please check your internet connection and try again."
+            case .cannotFindHost, .cannotConnectToHost:
+                errorMessage = "Cannot connect to the server. Please check your internet connection."
+            default:
+                errorMessage = "Network error: \(urlError.localizedDescription)"
+            }
+        } else {
+            // Generic error handling
+            errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
+        }
+        
+        showingError = true
     }
 }
 
