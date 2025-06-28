@@ -10,6 +10,7 @@ struct SessionRecapView: View {
     @Environment(\.dismiss) private var dismiss
     
     private let synthesizer = AVSpeechSynthesizer()
+    private let persistenceService = PersistenceService.shared
     
     var body: some View {
         NavigationView {
@@ -27,7 +28,7 @@ struct SessionRecapView: View {
                     
                     // Extracted Vocabulary
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("New Vocabulary")
+                        Text(Constants.Text.SessionRecap.newVocabulary)
                             .font(.headline)
                             .padding(.horizontal)
                         
@@ -36,7 +37,7 @@ struct SessionRecapView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                         } else if extractedVocabulary.isEmpty {
-                            Text("No new vocabulary items found")
+                            Text(Constants.Text.SessionRecap.noVocabulary)
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -52,7 +53,7 @@ struct SessionRecapView: View {
                     
                     // Continue Learning Button
                     Button(action: scheduleReview) {
-                        Label("Schedule Daily Review", systemImage: "bell.badge")
+                        Label(Constants.Text.SessionRecap.scheduleDailyReview, systemImage: Constants.SFSymbols.bellBadge)
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(Color.blue)
@@ -62,7 +63,7 @@ struct SessionRecapView: View {
                     .padding()
                 }
             }
-            .navigationTitle("Session Recap")
+            .navigationTitle(Constants.Text.SessionRecap.sessionSummary)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -81,7 +82,10 @@ struct SessionRecapView: View {
     private func extractVocabulary() {
         // In a real implementation, this would analyze the conversation
         // and extract new/difficult words using NLP or the LLM
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        Task {
+            // Simulate delay
+            try? await Task.sleep(nanoseconds: Constants.AnimationDurations.extraLongNanoseconds)
+            
             // For now, simulate extraction
             let sampleWords = [
                 ("hola", "hello", "Common greeting"),
@@ -90,16 +94,24 @@ struct SessionRecapView: View {
             ]
             
             for (word, translation, definition) in sampleWords.prefix(5) {
-                let item = PersistenceController.shared.addVocabularyItem(
-                    to: conversation,
-                    word: word,
-                    translation: translation,
-                    definition: definition
-                )
-                extractedVocabulary.append(item)
+                do {
+                    let item = try await persistenceService.addVocabularyItem(
+                        to: conversation,
+                        word: word,
+                        translation: translation,
+                        definition: definition
+                    )
+                    await MainActor.run {
+                        extractedVocabulary.append(item)
+                    }
+                } catch {
+                    print("Failed to add vocabulary item: \(error)")
+                }
             }
             
-            isProcessingVocabulary = false
+            await MainActor.run {
+                isProcessingVocabulary = false
+            }
         }
     }
     
@@ -114,29 +126,28 @@ struct SessionRecapView: View {
     private func speakWord(_ word: String) {
         let utterance = AVSpeechUtterance(string: word)
         utterance.voice = AVSpeechSynthesisVoice(language: getLocaleIdentifier())
-        utterance.rate = 0.4 // Slower for learning
+        utterance.rate = Constants.Audio.speechRate - 0.1 // Slightly slower for learning
         synthesizer.speak(utterance)
     }
     
     private func getLocaleIdentifier() -> String {
-        switch conversation.language {
-        case "Spanish": return "es-ES"
-        case "French": return "fr-FR"
-        case "Japanese": return "ja-JP"
-        case "Italian": return "it-IT"
-        case "Portuguese": return "pt-PT"
-        default: return "en-US"
-        }
+        guard let language = conversation.language else { return "en-US" }
+        return Constants.Languages.localeIdentifiers[language] ?? "en-US"
     }
     
     private func scheduleReview() {
         // Schedule notification for review
         // For now, just mark items for review
-        extractedVocabulary.forEach { item in
-            item.scheduleNextReview()
+        Task {
+            do {
+                for item in extractedVocabulary {
+                    try await persistenceService.scheduleNextReview(for: item)
+                }
+                dismiss()
+            } catch {
+                print("Failed to schedule review: \(error)")
+            }
         }
-        PersistenceController.shared.save()
-        dismiss()
     }
 }
 
@@ -147,23 +158,23 @@ struct SessionSummaryCard: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            Text("Session Summary")
+            Text(Constants.Text.SessionRecap.sessionSummary)
                 .font(.headline)
             
             HStack(spacing: 30) {
                 VStack {
-                    Image(systemName: "clock.fill")
+                    Image(systemName: Constants.SFSymbols.clockFill)
                         .font(.title2)
                         .foregroundColor(.blue)
-                    Text("\(Int(duration / 60)) min")
+                    Text("\(Int(duration / 60))" + Constants.Text.SessionRecap.minuteSuffix)
                         .font(.caption)
                 }
                 
                 VStack {
-                    Image(systemName: "message.fill")
+                    Image(systemName: Constants.SFSymbols.messageFill)
                         .font(.title2)
                         .foregroundColor(.green)
-                    Text("\(messageCount) messages")
+                    Text("\(messageCount)" + Constants.Text.SessionRecap.messagesSuffix)
                         .font(.caption)
                 }
                 
@@ -184,11 +195,11 @@ struct SessionSummaryCard: View {
     
     private func flagForLanguage(_ language: String) -> String {
         switch language {
-        case "Spanish": return "🇪🇸"
-        case "French": return "🇫🇷"
-        case "Japanese": return "🇯🇵"
-        case "Italian": return "🇮🇹"
-        case "Portuguese": return "🇵🇹"
+        case Constants.Languages.spanish: return "🇪🇸"
+        case Constants.Languages.french: return "🇫🇷"
+        case Constants.Languages.japanese: return "🇯🇵"
+        case Constants.Languages.italian: return "🇮🇹"
+        case Constants.Languages.portuguese: return "🇵🇹"
         default: return "🌍"
         }
     }
@@ -199,13 +210,13 @@ struct PerformanceCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Performance")
+            Text(Constants.Text.SessionRecap.performance)
                 .font(.headline)
             
             HStack {
-                Text("Confidence")
+                Text(Constants.Text.SessionRecap.confidence)
                 Spacer()
-                Text("\(Int(confidenceScore * 100))%")
+                Text("\(Int(confidenceScore * 100))" + Constants.Text.SessionRecap.percentSuffix)
                     .fontWeight(.semibold)
             }
             
@@ -261,7 +272,7 @@ struct VocabularyCard: View {
             Spacer()
             
             Button(action: onSpeak) {
-                Image(systemName: "speaker.wave.2.fill")
+                Image(systemName: Constants.SFSymbols.speakerWave)
                     .foregroundColor(.blue)
             }
         }
@@ -274,7 +285,7 @@ struct VocabularyCard: View {
 struct SessionRecapView_Previews: PreviewProvider {
     static var previews: some View {
         // Create a mock conversation for preview
-        let context = PersistenceController.shared.viewContext
+        let context = PersistenceService.shared.viewContext
         let conversation = Conversation(context: context)
         conversation.language = "Spanish"
         conversation.startTime = Date().addingTimeInterval(-300) // 5 minutes ago

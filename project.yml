@@ -9,6 +9,10 @@ schemes:
     build:
       targets:
         OpenLangAI: [run, test]
+        OpenLangAITests: [test]
+    test:
+      targets:
+        - OpenLangAITests
 targets:
   OpenLangAI:
     type: application
@@ -53,4 +57,16 @@ targets:
     resources:
       - Packages/PersistenceKit/Sources/PersistenceKit/OpenLangAI.xcdatamodeld
     settings:
+      GENERATE_INFOPLIST_FILE: YES
+  OpenLangAITests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - OpenLangAITests
+    dependencies:
+      - target: OpenLangAI
+    settings:
+      TEST_HOST: $(BUILT_PRODUCTS_DIR)/OpenLangAI.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/OpenLangAI
+      BUNDLE_LOADER: $(TEST_HOST)
       GENERATE_INFOPLIST_FILE: YES
