@@ -11,7 +11,7 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("LLM Provider")) {
+                Section(header: Text(Constants.Text.Settings.llmProvider)) {
                     Picker("Provider", selection: $selectedProvider) {
                         ForEach(LLMProvider.allCases) { provider in
                             Text(provider.rawValue).tag(provider)
@@ -20,7 +20,7 @@ struct ContentView: View {
                     .pickerStyle(SegmentedPickerStyle())
                 }
 
-                Section(header: Text("API Key")) {
+                Section(header: Text(Constants.Text.Settings.apiKey)) {
                     SecureField("Enter API Key", text: $apiKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
@@ -29,7 +29,7 @@ struct ContentView: View {
                     }
                 }
 
-                Section(header: Text("Language")) {
+                Section(header: Text(Constants.Text.Settings.language)) {
                     Picker("Learning Language", selection: $selectedLanguage) {
                         ForEach(Language.allCases) { lang in
                             Text(lang.rawValue).tag(lang)
@@ -38,7 +38,7 @@ struct ContentView: View {
                 }
 
                 if let result = testResult {
-                    Section(header: Text("Test Result")) {
+                    Section(header: Text(Constants.Text.Settings.testResult)) {
                         Text(result)
                     }
                 }

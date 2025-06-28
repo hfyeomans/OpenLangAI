@@ -1,27 +1,27 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
+    @State private var selectedTab = Constants.TabTags.practice
     
     var body: some View {
         TabView(selection: $selectedTab) {
             SessionView()
                 .tabItem {
-                    Label("Practice", systemImage: "mic.fill")
+                    Label(Constants.Text.Tabs.practice, systemImage: Constants.SFSymbols.micFill)
                 }
-                .tag(0)
+                .tag(Constants.TabTags.practice)
             
-            Text("Review")
+            Text(Constants.Text.Tabs.review)
                 .tabItem {
-                    Label("Review", systemImage: "book.fill")
+                    Label(Constants.Text.Tabs.review, systemImage: Constants.SFSymbols.bookFill)
                 }
-                .tag(1)
+                .tag(Constants.TabTags.review)
             
             ContentView()
                 .tabItem {
-                    Label("Settings", systemImage: "gear")
+                    Label(Constants.Text.Tabs.settings, systemImage: Constants.SFSymbols.gear)
                 }
-                .tag(2)
+                .tag(Constants.TabTags.settings)
         }
     }
 }
